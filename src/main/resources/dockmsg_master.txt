@@ -1,0 +1,58 @@
+
+1. cmd에서 레디스 실행
+
+
+# Master Redis 실행
+docker run -d --name redis-master -p 6379:6379 redis:6.2
+
+docker run -d --name redis-master --network redis-net redis:6.2
+
+
+# Slave Redis 실행
+docker run -d --name redis-slave1 redis:6.2
+docker run -d --name redis-slave2 redis:6.2
+
+# Master IP 확인 (Docker 네트워크 사용)
+docker network inspect bridge | grep redis-master
+
+# redis-slave1에 접속
+=> docker exec -it redis-slave1 redis-cli
+
+# Master 연결 (SLAVEOF <MASTER_IP> 6379)
+=> SLAVEOF 127.0.0.1 6379
+
+---
+2.1. 네트워크 준비
+Redis Sentinel은 서로 통신해야 하므로, Docker 네트워크를 생성합니다.
+docker network create redis-net
+
+
+# Sentinel 컨테이너 3개 실행
+docker run -d --name redis-sentinel1 redis:6.2 sentinel
+docker run -d --name redis-sentinel2 redis:6.2 sentinel
+docker run -d --name redis-sentinel3 redis:6.2 sentinel
+
+3개의 파일 준비 (sentinel1.conf ,2,3)
+
+# Sentinel 1 실행
+docker run -d --name redis-sentinel1 --network redis-net \
+    -v $(pwd)/sentinel1.conf:/etc/redis/sentinel.conf \
+    redis:6.2 redis-server /etc/redis/sentinel.conf --sentinel
+
+# Sentinel 2 실행
+docker run -d --name redis-sentinel2 --network redis-net \
+    -v $(pwd)/sentinel2.conf:/etc/redis/sentinel.conf \
+    redis:6.2 redis-server /etc/redis/sentinel.conf --sentinel
+
+# Sentinel 3 실행
+docker run -d --name redis-sentinel3 --network redis-net \
+    -v $(pwd)/sentinel3.conf:/etc/redis/sentinel.conf \
+    redis:6.2 redis-server /etc/redis/sentinel.conf --sentinel
+
+-> 만약 이미 실행중이라면 (기존 실행하던거 중지하기 ,중지되었는지 확인하기 ,오류 로그 확ㄴ )
+docker rm redis-sentinel1
+docker ps -a | grep redis-sentinel1
+docker logs redis-sentinel1
+-> 네트워크 연결정보 확인
+docker inspect redis-master | grep Network
+
